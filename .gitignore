@@ -73,3 +73,11 @@ packet parser/PACKET PARSE RO/config.xml
 */.vs/
 */bin/
 */obj/
+*/.idea/*
+.idea/*
+/control/config_local.txt
+/src/auto/XSTools/libNetRedirect.a
+/src/auto/XSTools/libXSTools.a
+/src/auto/XSTools/NetRedirect.dll
+/revc/Recv/recv.asi
+/src/auto/XSTools/XSTools.dll
