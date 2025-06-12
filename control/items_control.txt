@@ -66,7 +66,8 @@ all 0 1 0
 12323 500 1 0 # Asa de Mosca de Iniciante
 12324 100 1 0 #Asa de Borboleta de Iniciante#
 23280 500 1 0 # Asas de Mosquito
-602 50 1 0 # Butterfly Wing
+
+##### Itens que não são armazenaveis - Causam desconexão ao armazenar
 23278 1 1 0 # Ajudante Baixinho
 17575 1 1 0 #Baú Prateado do Dudu#
 17576 1 1 0 #Baú Prateado da Lili#
