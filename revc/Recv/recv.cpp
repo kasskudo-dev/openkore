@@ -22,6 +22,14 @@ enum e_PacketType {
     SENDED   = 1
 };
 
+// Definições para tratamento de ponteiros em x86/x64
+#if defined(_WIN64)
+    #define PTR_CAST(x) (uintptr_t)(x)
+#else
+    #define PTR_CAST(x) (x)
+#endif
+
+
 // Ponteiro para a função recv original
 typedef int (WINAPI* recv_func_t)(SOCKET s, char* buf, int len, int flags);
 recv_func_t original_recv = nullptr;
@@ -174,10 +182,10 @@ int ParseKeyString(const std::string& keyStr, bool& requiresCtrl, bool& requires
     std::string key = keyStr;
     requiresCtrl = false;
     requiresShift = false;
-    
+
     // Converte para maiúscula para facilitar comparação
     std::transform(key.begin(), key.end(), key.begin(), ::toupper);
-    
+
     // Verifica modificadores
     if (key.find("CTRL+") == 0) {
         requiresCtrl = true;
@@ -197,7 +205,7 @@ int ParseKeyString(const std::string& keyStr, bool& requiresCtrl, bool& requires
         requiresShift = true;
         key = key.substr(11); // Remove "SHIFT+CTRL+"
     }
-    
+
     // Mapeamento de teclas F1-F12
     if (key == "F1") return VK_F1;
     if (key == "F2") return VK_F2;
@@ -211,7 +219,7 @@ int ParseKeyString(const std::string& keyStr, bool& requiresCtrl, bool& requires
     if (key == "F10") return VK_F10;
     if (key == "F11") return VK_F11;
     if (key == "F12") return VK_F12;
-    
+
     // Teclas especiais adicionais
     if (key == "ESC" || key == "ESCAPE") return VK_ESCAPE;
     if (key == "SPACE") return VK_SPACE;
@@ -227,7 +235,7 @@ int ParseKeyString(const std::string& keyStr, bool& requiresCtrl, bool& requires
     if (key == "RIGHT") return VK_RIGHT;
     if (key == "UP") return VK_UP;
     if (key == "DOWN") return VK_DOWN;
-    
+
     // Teclas alfanuméricas (A-Z, 0-9)
     if (key.length() == 1) {
         char c = key[0];
@@ -238,7 +246,7 @@ int ParseKeyString(const std::string& keyStr, bool& requiresCtrl, bool& requires
             return c; // VK codes para 0-9 são os mesmos que ASCII
         }
     }
-    
+
     // Se não encontrou, retorna F11 como padrão
     return VK_F11;
 }
@@ -274,7 +282,7 @@ bool CreateDefaultConfig(const std::string& filename) {
     fout << "allowMultiClient=true\n";
 
     fout.close();
-    
+
     std::cout << "[INFO] Arquivo de configuração padrão criado: " << filename << std::endl;
     return true;
 }
@@ -287,7 +295,7 @@ bool LoadConfig(const std::string& filename) {
         if (!CreateDefaultConfig(filename)) {
             return false;
         }
-        
+
         // Tenta abrir novamente após criar
         fin.open(filename);
         if (!fin.is_open()) {
@@ -350,7 +358,7 @@ bool LoadConfig(const std::string& filename) {
         // Configurações de hotkeys (opcional, com valores padrão)
         applyHookKey = mapa.count("applyHookKey") > 0 ? mapa.at("applyHookKey") : "Ctrl+F11";
         removeHookKey = mapa.count("removeHookKey") > 0 ? mapa.at("removeHookKey") : "Ctrl+F12";
-        
+
         // Processa as strings das teclas
         applyHookVK = ParseKeyString(applyHookKey, applyHookRequiresCtrl, applyHookRequiresShift);
         removeHookVK = ParseKeyString(removeHookKey, removeHookRequiresCtrl, removeHookRequiresShift);
@@ -386,23 +394,23 @@ bool ApplyHook() {
 
     std::cout << "Attempting to apply hook at address: 0x" << std::hex << recv_ptr_address << std::dec << std::endl;
 
-    if (IsBadReadPtr((void*)recv_ptr_address, sizeof(DWORD))) {
+    if (IsBadReadPtr((void*)PTR_CAST(recv_ptr_address), sizeof(DWORD))) {
         std::cout << "ERRO: Endereço inválido para leitura!" << std::endl;
         return false;
     }
 
-    original_recv = *(recv_func_t*)recv_ptr_address;
-    std::cout << "Original recv pointer: 0x" << std::hex << (DWORD)original_recv << std::dec << std::endl;
+    original_recv = *(recv_func_t*)PTR_CAST(recv_ptr_address);
+    std::cout << "Original recv pointer: 0x" << std::hex << PTR_CAST(original_recv) << std::dec << std::endl;
 
     if (original_recv == nullptr) {
         std::cout << "ERRO: Ponteiro original é nulo!" << std::endl;
         return false;
     }
 
-    *(recv_func_t*)recv_ptr_address = hooked_recv;
-    std::cout << "New pointer (hook): 0x" << std::hex << (DWORD)hooked_recv << std::dec << std::endl;
+    *(recv_func_t*)PTR_CAST(recv_ptr_address) = hooked_recv;
+    std::cout << "New pointer (hook): 0x" << std::hex << PTR_CAST(hooked_recv) << std::dec << std::endl;
 
-    recv_func_t current_ptr = *(recv_func_t*)recv_ptr_address;
+    recv_func_t current_ptr = *(recv_func_t*)PTR_CAST(recv_ptr_address);
     if (current_ptr == hooked_recv) {
         std::cout << "Hook applied successfully!" << std::endl;
         return true;
@@ -417,7 +425,7 @@ bool ApplyHook() {
 void RemoveHook() {
     if (original_recv) {
         DWORD recv_ptr_address = recvPtrAddress;
-        *(recv_func_t*)recv_ptr_address = original_recv;
+        *(recv_func_t*)PTR_CAST(recv_ptr_address) = original_recv;
         std::cout << "Hook removido!" << std::endl;
     }
 }
@@ -509,8 +517,8 @@ Packet* unpackPacket(const char* buf, int buflen, int& next) {
 
 // Processar pacote recebido do Kore (igual)
 void processPacket(Packet* packet) {
-    sendFunc = (SendToClientFunc)(clientSubAddress);
-    instanceR = (originalInstanceR)(CRagConnection_instanceR_address);
+    sendFunc = (SendToClientFunc)PTR_CAST(clientSubAddress);
+    instanceR = (originalInstanceR)PTR_CAST(CRagConnection_instanceR_address);
     switch (packet->ID) {
     case 'S': // Enviar pacote para o servidor RO
         debug("Sending Data From Openkore to Server...");
@@ -665,7 +673,7 @@ DWORD WINAPI KeyboardMonitorThread(LPVOID lpParam) {
         bool applyKeyPressed = (GetAsyncKeyState(applyHookVK) & 0x8000) != 0;
         bool applyCtrlOk = !applyHookRequiresCtrl || (GetAsyncKeyState(VK_CONTROL) & 0x8000) != 0;
         bool applyShiftOk = !applyHookRequiresShift || (GetAsyncKeyState(VK_SHIFT) & 0x8000) != 0;
-        
+
         if (applyKeyPressed && applyCtrlOk && applyShiftOk) {
             if (!hook_applied) {
                 std::cout << "\n" << applyHookKey << " pressionado! Aplicando hook..." << std::endl;
@@ -681,7 +689,7 @@ DWORD WINAPI KeyboardMonitorThread(LPVOID lpParam) {
         bool removeKeyPressed = (GetAsyncKeyState(removeHookVK) & 0x8000) != 0;
         bool removeCtrlOk = !removeHookRequiresCtrl || (GetAsyncKeyState(VK_CONTROL) & 0x8000) != 0;
         bool removeShiftOk = !removeHookRequiresShift || (GetAsyncKeyState(VK_SHIFT) & 0x8000) != 0;
-        
+
         if (removeKeyPressed && removeCtrlOk && removeShiftOk) {
             if (hook_applied) {
                 std::cout << "\n" << removeHookKey << " pressionado! Removendo hook..." << std::endl;
@@ -702,17 +710,17 @@ DWORD GetUserPort() {
     char input[256];
     std::cout << "\n[MULTI-CLIENT MODE]" << std::endl;
     std::cout << "Digite a porta do servidor xKore (padrão: " << koreServerPort << "): ";
-    
+
     if (fgets(input, sizeof(input), stdin)) {
         // Remove quebra de linha
         input[strcspn(input, "\r\n")] = 0;
-        
+
         // Se string vazia (só Enter), usa porta padrão
         if (strlen(input) == 0) {
             std::cout << "Usando porta padrão: " << koreServerPort << std::endl;
             return koreServerPort;
         }
-        
+
         // Tenta converter para número
         int inputPort = atoi(input);
         if (inputPort > 0 && inputPort <= 65535) {
@@ -724,7 +732,7 @@ DWORD GetUserPort() {
             return koreServerPort;
         }
     }
-    
+
     std::cout << "Erro na leitura! Usando porta padrão: " << koreServerPort << std::endl;
     return koreServerPort;
 }
